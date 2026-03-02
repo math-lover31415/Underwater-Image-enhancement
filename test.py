@@ -1,0 +1,65 @@
+import matplotlib.pyplot as plt
+from constants.TrainingParameters import *
+from preprocessing import *
+from model import *
+from utilities import enhanceDCP
+import numpy as np
+
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+train_dataset = ImageDataset(input_dir=TRAIN_DATA_PATH+'/input',gt_dir=TRAIN_DATA_PATH+'/GT') 
+train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+
+# Load the model
+model = ImageEnhancementNetwork()
+model.load_state_dict(torch.load('checkpoints/best_uw_model.pth', map_location=DEVICE))
+model.to(DEVICE)
+model.eval()
+
+def test_image(name,val):
+    # Get one sample from the training dataset
+    sample_lf, sample_hf, sample_gt = val
+    sample_lf = sample_lf.unsqueeze(0).to(DEVICE)
+    sample_hf = sample_hf.unsqueeze(0).to(DEVICE)
+
+    # Enhance the image
+    with torch.no_grad():
+        enhanced = model(sample_lf, sample_hf).cpu().squeeze(0)
+
+    # Convert tensors to numpy arrays for display
+    def tensor_to_img(tensor):
+        img = tensor.detach().cpu().numpy()
+        img = np.transpose(img, (1, 2, 0))  # CHW to HWC
+        img = np.clip(img, 0, 1)
+        return img
+
+    plt.figure(figsize=(12,4))
+    plt.subplot(1,4,1)
+    plt.title("Original Input")
+    plt.imshow(tensor_to_img((sample_lf+sample_hf).squeeze(0)))
+    plt.axis('off')
+    # Save the enhanced image using PIL
+
+    plt.subplot(1,4,2)
+    plt.title("Enhanced Output with DCP")
+    dcp_enhanced = enhanceDCP(sample_lf+sample_hf)
+    plt.imshow(tensor_to_img(dcp_enhanced.squeeze(0)))
+    plt.axis('off')
+
+    plt.subplot(1,4,3)
+    plt.title("Enhanced Output with model")
+    plt.imshow(tensor_to_img(enhanced))
+    plt.axis('off')
+
+    plt.subplot(1,4,4)
+    plt.title("Ground Truth")
+    plt.imshow(tensor_to_img(sample_gt))
+    plt.axis('off')
+
+    plt.tight_layout()
+    plt.savefig(f"data/{name}.png")  # Save the figure to a file instead of showing it interactively
+    # plt.show()  # Commented out to avoid the warning
+    plt.close()
+
+for idx in range(len(train_dataset)):
+    test_image(f"output/{idx}", train_dataset[idx])

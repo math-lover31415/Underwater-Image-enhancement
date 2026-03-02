@@ -1,0 +1,66 @@
+import torch
+import torch.nn.functional as F
+from constants import DCP_TRANSMISSION_MAP_SCALING, DCP_KERNEL_SIZE, DCP_TRANSMISSION_PERCENTILE, DCP_MIN_TRANSMISSION, ATTENTION_SCALING
+import cv2
+import numpy as np
+
+def apply_clahe_rgb(img, clipLimit=2.0, tileGridSize=(8,8)):
+    # img: (H,W,3), float [0,1]
+    img_uint8 = (img * 255).astype(np.uint8)
+    lab = cv2.cvtColor(img_uint8, cv2.COLOR_RGB2LAB)
+    l, a, b = cv2.split(lab)
+
+    clahe = cv2.createCLAHE(clipLimit=clipLimit, tileGridSize=tileGridSize)
+    l_clahe = clahe.apply(l)
+
+    lab_clahe = cv2.merge((l_clahe, a, b))
+    rgb_clahe = cv2.cvtColor(lab_clahe, cv2.COLOR_LAB2RGB)
+
+    return rgb_clahe.astype(np.float32) / 255.0
+
+
+def minPool2d(x, kernel_size, stride=None, padding=0):
+    return -F.max_pool2d(-x, kernel_size, stride=stride, padding=padding)
+
+def backgroundLight(x, dark_channel):
+    B, C, H, W = x.shape
+    n_top = max(1, int(H * W * DCP_TRANSMISSION_PERCENTILE))
+
+    # Top-k brightest pixels in dark channel across all batch items at once
+    dc_flat = dark_channel.view(B, -1)                      # (B, H*W)
+    _, top_idx = dc_flat.topk(n_top, dim=1)                 # (B, n_top)
+
+    img_flat = x.view(B, C, -1)                             # (B, C, H*W)
+    idx_expanded = top_idx.unsqueeze(1).expand(B, C, n_top) # (B, C, n_top)
+    top_pixels = img_flat.gather(dim=2, index=idx_expanded) # (B, C, n_top)
+
+    A = top_pixels.max(dim=2).values.view(B, C, 1, 1)       # (B, C, 1, 1)
+    return A
+
+def DCPTransmission(x):
+    min_channel, _ = x[:, 1:, :, :].min(dim=1, keepdim=True)  # exclude red channel (index 0)
+    dark_channel = minPool2d(min_channel, kernel_size=DCP_KERNEL_SIZE, stride=1, padding=(DCP_KERNEL_SIZE-1)//2)
+    A = backgroundLight(x, dark_channel)
+    transmission_map = 1 - DCP_TRANSMISSION_MAP_SCALING * dark_channel
+    return transmission_map, A
+
+#DCP method goes here
+def enhanceDCP(x):
+    t, A = DCPTransmission(x)
+    J = (x-A)/torch.clamp(t, DCP_MIN_TRANSMISSION, 1) + A
+    return J
+
+def reverseTransmissionMap(x):
+    return 1 - ATTENTION_SCALING*DCPTransmission(x)[0]
+
+
+def applyMapBasedAttention(x,map):
+    resizedAttentionMap = F.interpolate(map, size=x.shape[2:], mode='bilinear', align_corners=False)
+    x = x * resizedAttentionMap
+    return x
+
+
+if __name__ == "__main__":
+    input = torch.rand(4,3,256,256)
+    rmt = reverseTransmissionMap(input)
+    out = applyMapBasedAttention(input,rmt)

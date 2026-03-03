@@ -46,8 +46,13 @@ def DCPTransmission(x):
 
 #DCP method goes here
 def enhanceDCP(x):
+    batched = x.ndim==4
+    if not batched:
+        x = x.unsqueeze(0)
     t, A = DCPTransmission(x)
     J = (x-A)/torch.clamp(t, DCP_MIN_TRANSMISSION, 1) + A
+    if not batched:
+        J = J.squeeze(0)
     return J
 
 def reverseTransmissionMap(x):
@@ -61,6 +66,6 @@ def applyMapBasedAttention(x,map):
 
 
 if __name__ == "__main__":
-    input = torch.rand(4,3,256,256)
-    rmt = reverseTransmissionMap(input)
-    out = applyMapBasedAttention(input,rmt)
+    image = torch.rand(3,256,256)
+    enhanced = enhanceDCP(image)
+    print(enhanced.shape)

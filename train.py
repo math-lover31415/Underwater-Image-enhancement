@@ -152,11 +152,15 @@ def train_model(model, trainingParameters, savePoint, emulatedFunction=None, cri
 
     # Initialize Datasets (Assuming input/GT folder structure) 
     train_dataset = ImageDataset(input_dir=os.path.join(TRAIN_DATA_PATH, "input"), 
-                                 gt_dir=os.path.join(TRAIN_DATA_PATH, "GT"), emulatedFunction=emulatedFunction) 
+                                gt_dir=os.path.join(TRAIN_DATA_PATH, "GT"), 
+                                no_gt_dir=os.path.join(TRAIN_DATA_PATH, "nogt"), 
+                                emulatedFunction=emulatedFunction) 
     train_loader = DataLoader(train_dataset, batch_size=trainingParameters.BATCH_SIZE, shuffle=True)
     
     val_dataset = ImageDataset(input_dir=os.path.join(VAL_DATA_PATH, "input"), 
-                               gt_dir=os.path.join(VAL_DATA_PATH, "GT"), emulatedFunction=emulatedFunction)
+                                gt_dir=os.path.join(VAL_DATA_PATH, "GT"),
+                                no_gt_dir=os.path.join(TRAIN_DATA_PATH, "nogt"),
+                                emulatedFunction=emulatedFunction)
     val_loader = DataLoader(val_dataset, batch_size=trainingParameters.BATCH_SIZE, shuffle=False)
 
     trainer = UnderwaterTrainer(model, train_loader, val_loader, optimizer, 

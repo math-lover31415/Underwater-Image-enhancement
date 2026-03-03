@@ -1,6 +1,7 @@
 IMAGE_SIZE = (256, 256)
-TRAIN_DATA_PATH = "./data/train"
-VAL_DATA_PATH = "./data/val"
+TRAIN_DATA_PATH = "./data/LSUI"
+TEST_DATA_PATH = "./data/SUIM"
+VAL_DATA_PATH = "./data/UIEB"
 SAVE_DIR = "./checkpoints"
 class SupervisedTrainingParameters:
     BATCH_SIZE = 40

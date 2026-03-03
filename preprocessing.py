@@ -31,7 +31,7 @@ def processImage(img_path, target_size=(256, 256), split=True):
         return torch.from_numpy(img_np).permute(2,0,1).float()
 
 class ImageDataset(Dataset):
-    def __init__(self, input_dir, gt_dir, target_size=(256, 256), emulatedFunction = None):
+    def __init__(self, input_dir, gt_dir, no_gt_dir=None, target_size=(256, 256), emulatedFunction = None):
         """
         Args:
             input_dir: Path to degraded images. [cite: 41]
@@ -45,9 +45,16 @@ class ImageDataset(Dataset):
         
         # We find all images in the input directory 
         try:
-            self.image_files = [f for f in os.listdir(input_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+            self.image_files = [f for f in os.listdir(input_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))][:10]
         except FileNotFoundError:
             self.image_files = []
+        
+        if emulatedFunction is None and no_gt_dir is not None:
+            try:
+                no_gt_images = [f for f in os.listdir(no_gt_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))][:10]
+            except FileNotFoundError:
+                no_gt_images = []
+            self.image_files.extend(no_gt_images)
         
         # Standardization tool
         self.transform = transforms.Compose([

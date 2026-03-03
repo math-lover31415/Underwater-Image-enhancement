@@ -7,8 +7,7 @@ import numpy as np
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-train_dataset = ImageDataset(input_dir=TRAIN_DATA_PATH+'/input',gt_dir=TRAIN_DATA_PATH+'/GT') 
-train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+test_dataset = ImageDataset(input_dir=TEST_DATA_PATH+'/input',gt_dir=TEST_DATA_PATH+'/GT') 
 
 # Load the model
 model = ImageEnhancementNetwork()
@@ -61,5 +60,5 @@ def test_image(name,val):
     # plt.show()  # Commented out to avoid the warning
     plt.close()
 
-for idx in range(len(train_dataset)):
-    test_image(f"output/{idx}", train_dataset[idx])
+for idx in range(len(test_dataset)):
+    test_image(f"output/{idx}", test_dataset[idx])

@@ -18,7 +18,7 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class CompositeLoss(nn.Module):
     """Composite loss: MSE + SSIM + Gradient Difference"""
-    def __init__(self, lambda_mse=1.0, lambda_ssim=0.5, lambda_gradient=0.3):
+    def __init__(self, lambda_mse=100.0, lambda_ssim=1.0, lambda_gradient=5.0):
         super(CompositeLoss, self).__init__()
         self.lambda_mse = lambda_mse
         self.lambda_ssim = lambda_ssim

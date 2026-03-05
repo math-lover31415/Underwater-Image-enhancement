@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from constants.TrainingParameters import *
 from preprocessing import *
 from model import *
-from utilities import enhanceDCP
+from utilities import enhanceDCP, apply_clahe_rgb
 import numpy as np
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -17,7 +17,8 @@ model.eval()
 
 def test_image(name,val):
     # Get one sample from the training dataset
-    sample_lf, sample_hf, sample_gt = val
+    sample_lf, sample_hf, sample_gt_lf, sample_gt_hf = val
+    sample_gt = sample_gt_hf+sample_gt_lf
     sample_lf = sample_lf.unsqueeze(0).to(DEVICE)
     sample_hf = sample_hf.unsqueeze(0).to(DEVICE)
 
@@ -32,25 +33,31 @@ def test_image(name,val):
         img = np.clip(img, 0, 1)
         return img
 
-    plt.figure(figsize=(12,4))
-    plt.subplot(1,4,1)
+    plt.figure(figsize=(12,5))
+    plt.subplot(1,5,1)
     plt.title("Original Input")
     plt.imshow(tensor_to_img((sample_lf+sample_hf).squeeze(0)))
     plt.axis('off')
     # Save the enhanced image using PIL
 
-    plt.subplot(1,4,2)
-    plt.title("Enhanced Output with DCP")
+    plt.subplot(1,5,2)
+    plt.title("Enhanced with DCP")
     dcp_enhanced = enhanceDCP(sample_lf+sample_hf)
     plt.imshow(tensor_to_img(dcp_enhanced.squeeze(0)))
     plt.axis('off')
 
-    plt.subplot(1,4,3)
-    plt.title("Enhanced Output with model")
+    plt.subplot(1,5,3)
+    plt.title("Enhanced with Clahe")
+    img = tensor_to_img((sample_lf+sample_hf).squeeze(0))
+    plt.imshow(apply_clahe_rgb(img))
+    plt.axis('off')
+
+    plt.subplot(1,5,4)
+    plt.title("Enhanced with model")
     plt.imshow(tensor_to_img(enhanced))
     plt.axis('off')
 
-    plt.subplot(1,4,4)
+    plt.subplot(1,5,5)
     plt.title("Ground Truth")
     plt.imshow(tensor_to_img(sample_gt))
     plt.axis('off')

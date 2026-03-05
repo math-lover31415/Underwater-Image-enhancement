@@ -17,15 +17,19 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class CompositeLoss(nn.Module):
-    """Composite loss: MSE + SSIM + Gradient Difference"""
-    def __init__(self, lambda_mse=100.0, lambda_ssim=1.0, lambda_gradient=5.0):
+    def __init__(self, model: ImageEnhancementNetwork, lambda_mse=100.0, lambda_ssim=1.0, lambda_gradient=5.0, lambda_hf=10, lambda_lf=100):
         super(CompositeLoss, self).__init__()
         self.lambda_mse = lambda_mse
         self.lambda_ssim = lambda_ssim
         self.lambda_gradient = lambda_gradient
+        self.lambdda_hf = lambda_hf
+        self.lambda_lf = lambda_lf
+        self.model = model
         
-        self.mse = nn.MSELoss()
-        self.l1 = nn.L1Loss()
+        self.mse_refinement = nn.MSELoss()
+        self.mse_prelim = nn.MSELoss()
+        self.l1_grad = nn.L1Loss()
+        self.l1_prelim = nn.L1Loss()
         
         # Sobel kernels for edge detection
         sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32).view(1, 1, 3, 3)
@@ -48,20 +52,33 @@ class CompositeLoss(nn.Module):
             gt_grad_x = F.conv2d(gt_c, self.sobel_x, padding=1)
             gt_grad_y = F.conv2d(gt_c, self.sobel_y, padding=1)
             
-            grad_loss += self.l1(out_grad_x, gt_grad_x) + self.l1(out_grad_y, gt_grad_y)
+            grad_loss += self.l1_grad(out_grad_x, gt_grad_x) + self.l1_grad(out_grad_y, gt_grad_y)
         
         return grad_loss / output.shape[1]
     
-    def forward(self, output, gt):
-        l_mse = self.mse(output, gt)
+    def forward(self, lf, hf, gt_lf, gt_hf):
+        gt = gt_hf + gt_lf
+        output = self.model(lf,hf)
+        lf_output = self.model.preliminaryNetwork.lfEnhancement(lf)
+        hf_output = self.model.preliminaryNetwork.lfEnhancement(hf)
+
+        l_mse_refinement = self.mse_refinement(output, gt)
         l_ssim = self.ssim_loss(output, gt)
         l_gradient = self.gradient_loss(output, gt)
         
-        return self.lambda_mse * l_mse + self.lambda_ssim * l_ssim + self.lambda_gradient * l_gradient
+        l_mse_prelim = self.mse_prelim(lf_output,gt_lf)
+
+        l_mae_prelim = self.l1_prelim(hf_output, hf)
+        
+        l_refinement = self.lambda_mse * l_mse_refinement + self.lambda_ssim * l_ssim + self.lambda_gradient * l_gradient
+
+        l_prelim = self.lambda_lf*l_mse_prelim + self.lambdda_hf*l_mae_prelim
+
+        return l_refinement + l_prelim
 
 
 class UnderwaterTrainer:
-    def __init__(self, model, train_loader, val_loader, optimizer, numEpochs, modelSavePoint, criterion=None):
+    def __init__(self, model, train_loader, val_loader, optimizer, numEpochs, modelSavePoint):
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -69,9 +86,8 @@ class UnderwaterTrainer:
         self.device = DEVICE
         self.numEpochs = numEpochs
         self.savePoint = modelSavePoint
-        
-        # Use provided criterion or default to CompositeLoss
-        self.criterion = criterion if criterion is not None else CompositeLoss().to(DEVICE)
+        self.loss = CompositeLoss(model)
+
         self.best_val_loss = float('inf')
 
         
@@ -81,21 +97,21 @@ class UnderwaterTrainer:
     
     def train_one_epoch(self) -> float:
         self.model.train()
+        self.loss.train()
         running_loss = 0.0
         
-        for batch_idx, (lf, hf, gt) in enumerate(self.train_loader):
+        for batch_idx, (lf, hf, gt_lf, gt_hf) in enumerate(self.train_loader):
             
             # Move data to device
-            lf, hf, gt = lf.to(self.device), hf.to(self.device), gt.to(self.device)
+            lf, hf, gt_lf, gt_hf = lf.to(self.device), hf.to(self.device), gt_lf.to(self.device), gt_hf.to(self.device)
             
             # Clear the gradients from previous batch
             self.optimizer.zero_grad()
             
             # Forward Pass
-            output = self.model(lf, hf)
+            loss = self.loss(lf, hf, gt_lf, gt_hf)
             
-            # Calculate Loss and backpropagate
-            loss = self.criterion(output, gt)
+            # Backpropagate
             loss.backward()
             
             # Update the weights
@@ -121,12 +137,10 @@ class UnderwaterTrainer:
         
         # No gradient calculation during validation
         with torch.no_grad():
-            for batch_idx, (lf, hf, gt) in enumerate(self.val_loader):
-                lf, hf, gt = lf.to(self.device), hf.to(self.device), gt.to(self.device)
+            for batch_idx, (lf, hf, gt_lf, gt_hf) in enumerate(self.val_loader):
+                lf, hf, gt_lf, gt_hf = lf.to(self.device), hf.to(self.device), gt_lf.to(self.device), gt_hf.to(self.device)
                 
-                output = self.model(lf, hf)
-                
-                loss = self.criterion(output, gt)
+                loss = self.loss(lf, hf, gt_lf, gt_hf)
                 val_running_loss += loss.item()
         
         
@@ -147,7 +161,7 @@ class UnderwaterTrainer:
                 print("  [SAVE] New best model saved to vault.")
 
 
-def train_model(model, trainingParameters, savePoint, emulatedFunction=None, criterion=None):
+def train_model(model, trainingParameters, savePoint, emulatedFunction=None):
     optimizer = optim.Adam(model.parameters(), lr=trainingParameters.LEARNING_RATE)
 
     # Initialize Datasets (Assuming input/GT folder structure) 
@@ -164,7 +178,7 @@ def train_model(model, trainingParameters, savePoint, emulatedFunction=None, cri
     val_loader = DataLoader(val_dataset, batch_size=trainingParameters.BATCH_SIZE, shuffle=False)
 
     trainer = UnderwaterTrainer(model, train_loader, val_loader, optimizer, 
-                                trainingParameters.NUM_EPOCHS, savePoint, criterion=criterion)
+                                trainingParameters.NUM_EPOCHS, savePoint)
 
     trainer.train_model()
 
@@ -175,17 +189,12 @@ if __name__ == '__main__':
 
     # Stage 1: Identity learning with simple L1
     print("Unsupervised Pretraining Phase:")
-    train_model(model, UnsupervisedPretrainingParameters, 'checkpoints/identity_model.pth',
-                lambda x: x, criterion=nn.L1Loss().to(DEVICE))
+    train_model(model, UnsupervisedPretrainingParameters, 'checkpoints/identity_model.pth', lambda x: x)
     
     # Stage 2: DCP knowledge transfer with MSE + SSIM
     print("\n\nKnowledge Transfer Phase:")
-    transfer_loss = CompositeLoss(lambda_mse=1.0, lambda_ssim=0.5, lambda_gradient=0.0).to(DEVICE)
-    train_model(model, KnowledgeTransfer, 'checkpoints/dcp_emulation.pth', 
-                enhanceDCP, criterion=transfer_loss)
+    train_model(model, KnowledgeTransfer, 'checkpoints/dcp_emulation.pth', enhanceDCP)
 
     # Stage 3: Full composite loss (MSE + SSIM + Gradient)
     print("\n\nSupervised Training:")
-    full_loss = CompositeLoss(lambda_mse=1.0, lambda_ssim=0.5, lambda_gradient=0.3).to(DEVICE)
-    train_model(model, SupervisedTrainingParameters, 'checkpoints/best_uw_model.pth',
-                criterion=full_loss)
+    train_model(model, SupervisedTrainingParameters, 'checkpoints/best_uw_model.pth')

@@ -29,6 +29,19 @@ def processImage(img_path, target_size=(256, 256), split=True):
     else:
         img_np = np.clip(img_np)
         return torch.from_numpy(img_np).permute(2,0,1).float()
+    
+def splitTensor(img: torch.Tensor): # To be refactored
+    img = img.permute(1, 2, 0)
+    np_arr = img.numpy()
+    hf, lf = splitImage(np_arr)
+
+    hf = np.clip(hf, 0, 1)
+    hf = torch.from_numpy(hf).permute(2,0,1).float()
+    
+    lf = np.clip(lf, 0, 1)
+    lf = torch.from_numpy(lf).permute(2,0,1).float()
+
+    return lf, hf
 
 class ImageDataset(Dataset):
     def __init__(self, input_dir, gt_dir, no_gt_dir=None, target_size=(256, 256), emulatedFunction = None):
@@ -76,10 +89,10 @@ class ImageDataset(Dataset):
         if self.emulatedFunction is None:
             # 3. Process Ground Truth (Just resize and convert to Tensor)
             gt_path = os.path.join(self.gt_dir, fname)
-            gt_img = Image.open(gt_path).convert('RGB')
-            gt = self.transform(gt_img)
+            gt_lf, gt_hf = processImage(gt_path, self.target_size)
         else:
             gt = self.emulatedFunction(lf+hf)
+            gt_lf, gt_hf = splitTensor(gt)
         
         # Return the tensors for train.py
-        return lf, hf, gt
+        return lf, hf, gt_lf, gt_hf

@@ -58,13 +58,13 @@ class ImageDataset(Dataset):
         
         # We find all images in the input directory 
         try:
-            self.image_files = [f for f in os.listdir(input_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))][:10]
+            self.image_files = [f for f in os.listdir(input_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
         except FileNotFoundError:
             self.image_files = []
         
         if emulatedFunction is None and no_gt_dir is not None:
             try:
-                no_gt_images = [f for f in os.listdir(no_gt_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))][:10]
+                no_gt_images = [f for f in os.listdir(no_gt_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
             except FileNotFoundError:
                 no_gt_images = []
             self.image_files.extend(no_gt_images)

@@ -166,7 +166,7 @@ class UnderwaterTrainer:
                 self.save_model()
                 print("  [SAVE] New best model saved to vault.")
             
-            if (last_best+EARLY_STOPPING)<epoch:
+            if (last_best+EARLY_STOPPING)<=epoch:
                 break
         
         self.load_model()

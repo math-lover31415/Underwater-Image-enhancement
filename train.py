@@ -152,6 +152,7 @@ class UnderwaterTrainer:
     
     def train_model(self):
         print("\n Starting Training")
+        last_best = 0
         for epoch in range(self.numEpochs):
             print(f"\nEpoch {epoch + 1}/{self.numEpochs}")
             avg_train_loss = self.train_one_epoch()
@@ -161,8 +162,12 @@ class UnderwaterTrainer:
 
             if avg_val_loss < self.best_val_loss:
                 self.best_val_loss = avg_val_loss
+                last_best = epoch
                 self.save_model()
                 print("  [SAVE] New best model saved to vault.")
+            
+            if (last_best+EARLY_STOPPING)<epoch:
+                break
         
         self.load_model()
 

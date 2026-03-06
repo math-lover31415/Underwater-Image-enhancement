@@ -3,6 +3,7 @@ TRAIN_DATA_PATH = "./data/LSUI"
 TEST_DATA_PATH = "./data/SUIM"
 VAL_DATA_PATH = "./data/UIEB"
 SAVE_DIR = "./checkpoints"
+EARLY_STOPPING = 3
 class SupervisedTrainingParameters:
     BATCH_SIZE = 40
     LEARNING_RATE = 1e-5

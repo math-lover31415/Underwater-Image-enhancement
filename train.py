@@ -93,8 +93,12 @@ class UnderwaterTrainer:
         
     def save_model(self):
         if self.savePoint:
-            torch.save(self.model.state_dict(), self.savePoint)    
+            torch.save(self.model.state_dict(), self.savePoint)
     
+    def load_model(self):
+        if self.savePoint:
+            self.model.load_state_dict(torch.load(self.savePoint, map_location=DEVICE, weights_only=False))
+
     def train_one_epoch(self) -> float:
         self.model.train()
         self.loss.train()
@@ -159,6 +163,8 @@ class UnderwaterTrainer:
                 self.best_val_loss = avg_val_loss
                 self.save_model()
                 print("  [SAVE] New best model saved to vault.")
+        
+        self.load_model()
 
 
 def train_model(model, trainingParameters, savePoint, emulatedFunction=None):

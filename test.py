@@ -11,7 +11,7 @@ test_dataset = ImageDataset(input_dir=TEST_DATA_PATH+'/input',gt_dir=TEST_DATA_P
 
 # Load the model
 model = ImageEnhancementNetwork()
-model.load_state_dict(torch.load('checkpoints/best_uw_model.pth', map_location=DEVICE))
+model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
 model.to(DEVICE)
 model.eval()
 

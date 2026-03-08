@@ -1,11 +1,21 @@
-from torch.utils.data import DataLoader
-from preprocessing import ImageDataset
-from metrics.uiqm import UIQM
+import torch
+
+from preprocessing import ImageDataset, splitTensor
+from model import ImageEnhancementNetwork
+from metrics import Evaluator
 from constants.TrainingParameters import *
 
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+def evaluateModel(image):
+    lf, hf = splitTensor(lf, hf)
+    model = ImageEnhancementNetwork()
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+    model.to(DEVICE)
+    model.eval()
+
 if __name__=='__main__':
-    test_dataset = ImageDataset(input_dir=TEST_DATA_PATH+'/input',gt_dir=TEST_DATA_PATH+'/GT')
-    test_loader = DataLoader(test_dataset,batch_size=1)
-    for lf, hf, gt in test_loader:
-        image = lf + hf
-        print(UIQM(image.squeeze(0)).uiqm())
+    test_dataset = ImageDataset(input_dir=TEST_DATA_PATH+'/input',gt_dir=TEST_DATA_PATH+'/GT', limitImages=10)
+    eval = Evaluator(test_dataset)
+
+    print(eval.evaluate())

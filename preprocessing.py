@@ -44,7 +44,7 @@ def splitTensor(img: torch.Tensor): # To be refactored
     return lf, hf
 
 class ImageDataset(Dataset):
-    def __init__(self, input_dir, gt_dir, no_gt_dir=None, target_size=(256, 256), emulatedFunction = None):
+    def __init__(self, input_dir, gt_dir, no_gt_dir=None, target_size=(256, 256), emulatedFunction = None, limitImages = None):
         """
         Args:
             input_dir: Path to degraded images. [cite: 41]
@@ -69,6 +69,9 @@ class ImageDataset(Dataset):
                 no_gt_images = []
             self.image_files.extend(no_gt_images)
         
+        if limitImages is not None:
+            self.image_files = self.image_files[:limitImages]
+
         # Standardization tool
         self.transform = transforms.Compose([
             transforms.Resize(self.target_size),

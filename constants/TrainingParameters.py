@@ -6,7 +6,7 @@ SAVE_DIR = "./checkpoints"
 EARLY_STOPPING = 2
 class SupervisedTrainingParameters:
     BATCH_SIZE = 40
-    LEARNING_RATE = 1e-5
+    LEARNING_RATE = 1e-4
     NUM_EPOCHS = 20
 
 
@@ -18,5 +18,5 @@ class UnsupervisedPretrainingParameters:
 
 class KnowledgeTransfer:
     BATCH_SIZE = 40
-    LEARNING_RATE = 1e-4
+    LEARNING_RATE = 1e-3
     NUM_EPOCHS = 5

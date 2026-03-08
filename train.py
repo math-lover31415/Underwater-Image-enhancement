@@ -86,7 +86,7 @@ class UnderwaterTrainer:
         self.device = DEVICE
         self.numEpochs = numEpochs
         self.savePoint = modelSavePoint
-        self.loss = CompositeLoss(model)
+        self.loss = CompositeLoss(model).to(DEVICE)
 
         self.best_val_loss = float('inf')
 

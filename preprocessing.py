@@ -28,11 +28,11 @@ def processImage(img_path, target_size=(256, 256), split=True):
         return lf_tensor, hf_tensor
     else:
         img_np = np.clip(img_np)
-        return torch.from_numpy(img_np).permute(2,0,1).float()
+        return torch.from_numpy(img_np).permute(2,0,1).float().to(DEVICE)
     
 def splitTensor(img: torch.Tensor): # To be refactored
     img = img.permute(1, 2, 0)
-    np_arr = img.numpy()
+    np_arr = img.cpu().numpy()
     hf, lf = splitImage(np_arr)
 
     hf = np.clip(hf, 0, 1)

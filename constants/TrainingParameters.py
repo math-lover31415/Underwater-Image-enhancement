@@ -1,22 +1,23 @@
 IMAGE_SIZE = (256, 256)
 TRAIN_DATA_PATH = "./data/LSUI"
-TEST_DATA_PATH = "./data/SUIM"
-VAL_DATA_PATH = "./data/UIEB"
+VAL_DATA_PATH = "./data/SUIM"
+TEST_DATA_PATH = "./data/UIEB"
 SAVE_DIR = "./checkpoints"
-EARLY_STOPPING = 2
+EARLY_STOPPING = 8
+
 class SupervisedTrainingParameters:
-    BATCH_SIZE = 40
+    BATCH_SIZE = 64
     LEARNING_RATE = 1e-4
-    NUM_EPOCHS = 20
+    NUM_EPOCHS = 35
 
 
 class UnsupervisedPretrainingParameters:
-    BATCH_SIZE = 40
-    LEARNING_RATE = 1e-2
-    NUM_EPOCHS = 3
+    BATCH_SIZE = 64
+    LEARNING_RATE = 1e-3
+    NUM_EPOCHS = 8
 
 
 class KnowledgeTransfer:
-    BATCH_SIZE = 40
-    LEARNING_RATE = 1e-3
-    NUM_EPOCHS = 5
+    BATCH_SIZE = 64
+    LEARNING_RATE = 5e-4
+    NUM_EPOCHS = 10

@@ -1,13 +1,11 @@
 import os
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
-from pytorch_msssim import ssim
 
 from utilities import enhanceDCP
+from loss import CompositeLoss
 from model import ImageEnhancementNetwork
 from preprocessing import ImageDataset
 from constants.TrainingParameters import *
@@ -15,45 +13,6 @@ from constants.TrainingParameters import *
 
 # Configs
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-
-class CompositeLoss(nn.Module):
-    def __init__(self, model: ImageEnhancementNetwork, lambda_mse=100.0, lambda_ssim=1.0, lambda_hf=10, lambda_lf=100):
-        super(CompositeLoss, self).__init__()
-        self.lambda_mse = lambda_mse
-        self.lambda_ssim = lambda_ssim
-        self.lambda_hf = lambda_hf
-        self.lambda_lf = lambda_lf
-        self.model = model
-        
-        self.mse_refinement = nn.MSELoss()
-        self.mse_prelim = nn.MSELoss()
-        self.l1_grad = nn.L1Loss()
-        self.l1_prelim = nn.L1Loss()
-        
-    
-    def ssim_loss(self, output, gt):
-        return 1 - ssim(output, gt, data_range=1.0, size_average=True)
-    
-    
-    def forward(self, lf, hf, gt_lf, gt_hf):
-        gt = gt_hf + gt_lf
-        output = self.model(lf,hf)
-        lf_output = self.model.preliminaryNetwork.lfEnhancement(lf)
-        hf_output = self.model.preliminaryNetwork.hfEnhancement(hf)
-
-        l_mse_refinement = self.mse_refinement(output, gt)
-        l_ssim = self.ssim_loss(output, gt)
-        
-        l_mse_prelim = self.mse_prelim(lf_output,gt_lf)
-
-        l_mae_prelim = self.l1_prelim(hf_output, gt_hf)
-        
-        l_refinement = self.lambda_mse * l_mse_refinement + self.lambda_ssim * l_ssim
-
-        l_prelim = self.lambda_lf*l_mse_prelim + self.lambda_hf*l_mae_prelim
-
-        return l_refinement + l_prelim
 
 
 class UnderwaterTrainer:
@@ -188,11 +147,11 @@ if __name__ == '__main__':
 
     # Stage 1: Identity learning with simple L1
     print("Unsupervised Pretraining Phase:")
-    train_model(model, UnsupervisedPretrainingParameters, 'checkpoints/identity_model.pth', lambda x: x, limitImages=10)
+    train_model(model, UnsupervisedPretrainingParameters, 'checkpoints/identity_model.pth', lambda x: x[:3], limitImages=10)
     
     # Stage 2: DCP knowledge transfer with MSE + SSIM
     print("\n\nKnowledge Transfer Phase:")
-    train_model(model, KnowledgeTransfer, 'checkpoints/dcp_emulation.pth', enhanceDCP, limitImages=10)
+    train_model(model, KnowledgeTransfer, 'checkpoints/dcp_emulation.pth', lambda x: enhanceDCP(x[:3]), limitImages=10)
 
     # Stage 3: Full composite loss (MSE + SSIM + Gradient)
     print("\n\nSupervised Training:")

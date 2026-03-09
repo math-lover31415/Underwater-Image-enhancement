@@ -129,18 +129,25 @@ class RefinementNetwork(Module):
         attentionMap = reverseTransmissionMap(x)
 
         y = x
+        skips = []
+
+        # Encoder — save skip connections
         for layer_n in range(self.numLayers):
             y = self.downscalingLayers[layer_n](y)
             y = applyMapBasedAttention(y, attentionMap)
+            skips.append(y)
 
+        # Decoder — add skip connections from encoder
         for layer_n in range(self.numLayers):
+            skip = skips[self.numLayers - 1 - layer_n]
+            y = y + skip
             if layer_n == self.numLayers - 1:
-                y = self.upscalingLayers[layer_n](y)  # final layer — no attention after Sigmoid
+                y = self.upscalingLayers[layer_n](y)
             else:
                 y = self.upscalingLayers[layer_n](y)
                 y = applyMapBasedAttention(y, attentionMap)
 
-        return torch.clamp(y + x, 0, 1)
+        return torch.clamp(y, 0, 1)
 
 
 class ImageEnhancementNetwork(Module):

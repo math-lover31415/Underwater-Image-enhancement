@@ -23,7 +23,7 @@ class PerceptualLoss(nn.Module):
 
 
 class CompositeLoss(nn.Module):
-    def __init__(self, model: ImageEnhancementNetwork, lambda_mae=100.0, lambda_ssim=1.0, lambda_hf=10, lambda_lf=100, lambda_perceptual=1):
+    def __init__(self, model: ImageEnhancementNetwork, lambda_mae=80, lambda_ssim=20, lambda_hf=50, lambda_lf=50, lambda_perceptual=10):
         super(CompositeLoss, self).__init__()
         self.lambda_mae = lambda_mae
         self.lambda_ssim = lambda_ssim

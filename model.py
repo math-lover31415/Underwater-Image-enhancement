@@ -1,7 +1,7 @@
 import torch
 
-from torch.nn import Module, ModuleList, LeakyReLU, Sigmoid, BatchNorm2d
-from torch.nn import Conv2d, ConvTranspose2d
+from torch.nn import Module, ModuleList, LeakyReLU, Sigmoid, BatchNorm2d, PixelShuffle
+from torch.nn import Conv2d
 
 from constants import PRELIMINARY_NETWORK_DEPTH, REFINEMENT_NETWORK_DEPTH
 from utilities import reverseTransmissionMap, applyMapBasedAttention
@@ -20,31 +20,42 @@ class Layer(Module):
             self.activation = LeakyReLU(negative_slope=0.01)
 
     def forward(self, x):
-        y = self.activation(self.bn(self.conv(x)))
+        y = self.conv(x)
+        if not self.final:
+            y = self.bn(y)
+        y = self.activation(y)
         return y
 
 
 class EncoderLayer(Module):
-    def __init__(self, in_size, out_size):
+    def __init__(self, in_size, out_size, first=False):
         super(EncoderLayer, self).__init__()
-        self.conv = Conv2d(in_size, out_size, kernel_size=2, stride=2)
+        self.conv = Conv2d(in_size, out_size, kernel_size=4, stride=2, padding=1)
         self.bn = BatchNorm2d(out_size)
+        self.first = first
         self.activation = LeakyReLU(negative_slope=0.01)
 
     def forward(self, x):
-        return self.activation(self.bn(self.conv(x)))
+        y = self.conv(x)
+        if not self.first:
+            y = self.activation(self.bn(y))
+        else:
+            y = self.activation(y)
+        return y
 
 
 class DecoderLayer(Module):
     def __init__(self, in_size, out_size, final=False):
         super(DecoderLayer, self).__init__()
-        self.conv = ConvTranspose2d(in_size, out_size, kernel_size=2, stride=2)
+        # PixelShuffle requires in_size → out_size * scale^2 channels, then shuffles
+        self.conv = Conv2d(in_size, out_size * 4, kernel_size=3, padding=1)
+        self.pixel_shuffle = PixelShuffle(upscale_factor=2)
         self.bn = BatchNorm2d(out_size)
         self.final = final
         self.activation = Sigmoid() if final else LeakyReLU(negative_slope=0.01)
 
     def forward(self, x):
-        y = self.conv(x)
+        y = self.pixel_shuffle(self.conv(x))
         if not self.final:
             y = self.activation(self.bn(y))
         else:
@@ -87,8 +98,7 @@ class HFEnhancementNetwork(Module):
         y = x
         for i in range(self.numLayers):
             y = self.layers[i](y)
-        # Final layer has Sigmoid so y is in [0,1]; clamp sum to stay in range
-        return torch.clamp(x + y, 0, 1)
+        return x + y
 
 
 class PreliminaryEnhancementNetwork(Module):
@@ -100,14 +110,13 @@ class PreliminaryEnhancementNetwork(Module):
     def forward(self, lf, hf):
         lf = self.lfEnhancement(lf)
         hf = self.hfEnhancement(hf)
-        # Average rather than sum to keep output in [0,1]
-        return (lf + hf) / 2
+        return lf + hf
 
 class RefinementNetwork(Module):
     def __init__(self, numLayers):
         super(RefinementNetwork, self).__init__()
         self.downscalingLayers = ModuleList(
-            EncoderLayer(in_size=3 if i == 0 else 32, out_size=32)
+            EncoderLayer(in_size=3 if i == 0 else 32, out_size=32, first=(i == 0))
             for i in range(numLayers)
         )
         self.upscalingLayers = ModuleList(

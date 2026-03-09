@@ -2,7 +2,7 @@ IMAGE_SIZE = (256, 256)
 TRAIN_DATA_PATH = "./data/LSUI"
 VAL_DATA_PATH = "./data/SUIM"
 TEST_DATA_PATH = "./data/UIEB"
-MODEL_PATH = "checkpoints/weights.pth"
+MODEL_PATH = "checkpoints/weights_schedule.pth"
 SAVE_DIR = "./checkpoints"
 EARLY_STOPPING = 8
 

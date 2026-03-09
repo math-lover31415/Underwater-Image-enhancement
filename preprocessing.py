@@ -1,4 +1,5 @@
 import os
+import cv2
 import torch
 import numpy as np
 from PIL import Image
@@ -6,29 +7,37 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from dct import splitImage 
 from constants import DCT_CUTOFF_RATIO
+from constants.TrainingParameters import *
 
-def processImage(img_path, target_size=(256, 256), split=True):
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+def processImage(img_path, target_size=(256, 256), split=True, multiChannel=True):
     """
     Standardizes image size and performs Frequency Decomposition.
     """
-    image = Image.open(img_path).convert('RGB') # [cite: 59, 184]
-    image = image.resize(target_size, Image.Resampling.LANCZOS) # [cite: 137, 183]
+    image = Image.open(img_path).convert('RGB')
+    image = image.resize(target_size, Image.Resampling.LANCZOS)
     img_np = np.array(image) / 255.0
 
+    if multiChannel:
+        # LAB and HSV auxiliary channels
+        img_uint8 = (img_np * 255).astype(np.uint8)
+        lab = cv2.cvtColor(img_uint8, cv2.COLOR_RGB2LAB).astype(np.float32) / 255.0
+        hsv = cv2.cvtColor(img_uint8, cv2.COLOR_RGB2HSV).astype(np.float32) / 255.0
+
+        img_np = np.concatenate([img_np, lab, hsv], axis=-1)  # (H, W, 9)
+
     if split:
-        # Split into LF (color/lighting) and HF (edges/texture) 
+        # splitImage still operates per 3-channel image, use only RGB for frequency split
         hf_np, lf_np = splitImage(img_np, cutoff_ratio=DCT_CUTOFF_RATIO)
-        
         hf_np = np.clip(hf_np, 0, 1)
         lf_np = np.clip(lf_np, 0, 1)
-        
-        # Convert to Tensors (C, H, W) for PyTorch 
+
         lf_tensor = torch.from_numpy(lf_np).permute(2, 0, 1).float()
         hf_tensor = torch.from_numpy(hf_np).permute(2, 0, 1).float()
         return lf_tensor, hf_tensor
     else:
-        img_np = np.clip(img_np)
-        return torch.from_numpy(img_np).permute(2,0,1).float().to(DEVICE)
+        return torch.from_numpy(img_np).permute(2, 0, 1).float().to(DEVICE)
     
 def splitTensor(img: torch.Tensor): # To be refactored
     img = img.permute(1, 2, 0)
@@ -87,15 +96,23 @@ class ImageDataset(Dataset):
         
         # 2. Process Input (Decompose into LF/HF) [cite: 13, 64, 186]
         input_path = os.path.join(self.input_dir, fname)
-        lf, hf = processImage(input_path, self.target_size)
+        lf, hf = processImage(input_path, self.target_size, multiChannel=True)
         
         if self.emulatedFunction is None:
             # 3. Process Ground Truth (Just resize and convert to Tensor)
             gt_path = os.path.join(self.gt_dir, fname)
-            gt_lf, gt_hf = processImage(gt_path, self.target_size)
+            gt_lf, gt_hf = processImage(gt_path, self.target_size, multiChannel=False)
         else:
             gt = self.emulatedFunction(lf+hf)
             gt_lf, gt_hf = splitTensor(gt)
         
         # Return the tensors for train.py
         return lf, hf, gt_lf, gt_hf
+    
+if __name__=='__main__':
+    data = ImageDataset(TEST_DATA_PATH+"/input", TEST_DATA_PATH+"/GT", limitImages=10)
+    loader = DataLoader(data, batch_size=1)
+    for i in loader:
+        for x in i:
+            print(x.shape)
+        break

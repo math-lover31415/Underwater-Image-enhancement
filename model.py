@@ -6,6 +6,8 @@ from torch.nn import Conv2d
 from constants import PRELIMINARY_NETWORK_DEPTH, REFINEMENT_NETWORK_DEPTH
 from utilities import reverseTransmissionMap, applyMapBasedAttention
 
+IN_CHANNEL_NUM = 9
+OUT_CHANNEL_NUM = 3
 
 class Layer(Module):
     def __init__(self, in_size, out_size, final=False):
@@ -69,8 +71,8 @@ class LFEnhancementNetwork(Module):
         self.numLayers = numLayers
         self.layers = ModuleList(
             Layer(
-                in_size=3 if i == 0 else 32,
-                out_size=3 if i == (numLayers - 1) else 32,
+                in_size=IN_CHANNEL_NUM if i == 0 else 32,
+                out_size=OUT_CHANNEL_NUM if i == (numLayers - 1) else 32,
                 final=i == (numLayers - 1)
             ) for i in range(numLayers)
         )
@@ -88,17 +90,18 @@ class HFEnhancementNetwork(Module):
         self.numLayers = numLayers
         self.layers = ModuleList(
             Layer(
-                in_size=3 if i == 0 else 32,
-                out_size=3 if i == (numLayers - 1) else 32,
+                in_size=IN_CHANNEL_NUM if i == 0 else 32,
+                out_size=OUT_CHANNEL_NUM if i == (numLayers - 1) else 32,
                 final=i == (numLayers - 1)
             ) for i in range(numLayers)
         )
+        self.finalConv = Conv2d(IN_CHANNEL_NUM, OUT_CHANNEL_NUM, kernel_size=1)
 
     def forward(self, x):
         y = x
         for i in range(self.numLayers):
             y = self.layers[i](y)
-        return x + y
+        return self.finalConv(x) + y
 
 
 class PreliminaryEnhancementNetwork(Module):
@@ -116,11 +119,11 @@ class RefinementNetwork(Module):
     def __init__(self, numLayers):
         super(RefinementNetwork, self).__init__()
         self.downscalingLayers = ModuleList(
-            EncoderLayer(in_size=3 if i == 0 else 32, out_size=32, first=(i == 0))
+            EncoderLayer(in_size=IN_CHANNEL_NUM if i == 0 else 32, out_size=32, first=(i == 0))
             for i in range(numLayers)
         )
         self.upscalingLayers = ModuleList(
-            DecoderLayer(in_size=32, out_size=3 if i == (numLayers - 1) else 32, final=i == (numLayers - 1))
+            DecoderLayer(in_size=32, out_size=OUT_CHANNEL_NUM if i == (numLayers - 1) else 32, final=i == (numLayers - 1))
             for i in range(numLayers)
         )
         self.numLayers = numLayers
@@ -158,13 +161,14 @@ class ImageEnhancementNetwork(Module):
 
     def forward(self, lf, hf):
         preliminary_image = self.preliminaryNetwork(lf, hf)
-        enhanced_image = self.refinementNetwork(preliminary_image)
+        combined = torch.cat([preliminary_image, lf[:, :3], hf[:, :3]], dim=1)
+        enhanced_image = self.refinementNetwork(combined)
         return enhanced_image
 
 
 if __name__ == "__main__":
-    lf = torch.randn(1, 3, 256, 256)
-    hf = torch.randn(1, 3, 256, 256)
+    lf = torch.randn(1, 9, 256, 256)
+    hf = torch.randn(1, 9, 256, 256)
     model = ImageEnhancementNetwork()
     y = model(lf, hf)
     print(y.shape)

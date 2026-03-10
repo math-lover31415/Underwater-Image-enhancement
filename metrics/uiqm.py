@@ -13,9 +13,9 @@ class UIQM:
         t_r = floor(alpha_high*k)
         sorted_vals,_ = torch.sort(img_flat)
         trimmed = sorted_vals[t_l:k-t_r]
-        mean = float(trimmed.mean())
+        mean = trimmed.mean().item()
         square_diff = (trimmed-mean)**2
-        variance = float(square_diff.mean())
+        variance = square_diff.mean().item()
         return mean,variance
 
     def uicm(image, gt=None):
@@ -35,7 +35,7 @@ class UIQM:
         num_blocks = i_max.numel()
         ratio = i_max/i_min.clamp(min=eps)
         log_ratio = torch.log(ratio)
-        return float((2/num_blocks)*log_ratio.sum())
+        return (2/num_blocks)*log_ratio.sum().item()
 
     def uism(image, gt=None):
         lambdas = [0.299,0.587,0.114]
@@ -63,7 +63,7 @@ class UIQM:
         ratio = numerator/denominator
         ratio = ratio.clamp(eps)
         logamee = ratio*torch.log(ratio)
-        return float(UIQM.__plipMul(1/logamee.numel(),logamee.sum()))
+        return UIQM.__plipMul(1/logamee.numel(),logamee.sum()).item()
 
     def uiqm(image, gt=None, c1=0.0282, c2=0.2953, c3=3.5753):
         if image.ndim==4:

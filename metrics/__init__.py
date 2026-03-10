@@ -11,8 +11,8 @@ class Evaluator:
         self.device = device
         self.metrics = { #Add other metrics here
             "UIQM": UIQM.uiqm,
-            "SSIM": lambda x,y: float(ssim(x, y, data_range=1.0, size_average=True)),
-            "PSNR": lambda x,y: float(psnr(x, y, data_range=1.0))
+            "SSIM": lambda x,y: ssim(x, y, data_range=1.0, size_average=True).item(),
+            "PSNR": lambda x,y: psnr(x, y, data_range=1.0).item()
         }
     
     def average_metric(self, metricName: str) -> float:

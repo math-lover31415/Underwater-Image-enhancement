@@ -21,6 +21,7 @@ def test_image(name,val):
     sample_gt = sample_gt_hf+sample_gt_lf
     sample_lf = sample_lf.unsqueeze(0).to(DEVICE)
     sample_hf = sample_hf.unsqueeze(0).to(DEVICE)
+    image = (sample_lf+sample_hf)[:,:3]
 
     # Enhance the image
     with torch.no_grad():
@@ -36,19 +37,19 @@ def test_image(name,val):
     plt.figure(figsize=(12,5))
     plt.subplot(1,5,1)
     plt.title("Original Input")
-    plt.imshow(tensor_to_img((sample_lf+sample_hf).squeeze(0)))
+    plt.imshow(tensor_to_img(image.squeeze(0)))
     plt.axis('off')
     # Save the enhanced image using PIL
 
     plt.subplot(1,5,2)
     plt.title("Enhanced with DCP")
-    dcp_enhanced = enhanceDCP(sample_lf+sample_hf)
+    dcp_enhanced = enhanceDCP(image)
     plt.imshow(tensor_to_img(dcp_enhanced.squeeze(0)))
     plt.axis('off')
 
     plt.subplot(1,5,3)
     plt.title("Enhanced with Clahe")
-    img = tensor_to_img((sample_lf+sample_hf).squeeze(0))
+    img = tensor_to_img(image.squeeze(0))
     plt.imshow(apply_clahe_rgb(img))
     plt.axis('off')
 

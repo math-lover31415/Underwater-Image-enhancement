@@ -23,7 +23,7 @@ class Evaluator:
         num_done = 0
         for lf, hf, gt_lf, gt_hf in self.loader:
             lf, hf, gt_lf, gt_hf = lf.to(self.device), hf.to(self.device), gt_lf.to(self.device), gt_hf.to(self.device)
-            total += metric(self.model(lf, hf), gt_lf+gt_hf)
+            total += metric(self.model(lf, hf)[0], gt_lf+gt_hf)
             num_done += 1
             if num_done%20==0:
                 print(f"Calculating {metricName}:{num_done}/{num}")

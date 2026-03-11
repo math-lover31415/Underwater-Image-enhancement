@@ -25,7 +25,7 @@ def test_image(name,val):
 
     # Enhance the image
     with torch.no_grad():
-        enhanced = model(sample_lf, sample_hf).cpu().squeeze(0)
+        enhanced = model(sample_lf, sample_hf)[0].cpu().squeeze(0)
 
     # Convert tensors to numpy arrays for display
     def tensor_to_img(tensor):

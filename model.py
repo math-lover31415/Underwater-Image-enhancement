@@ -113,7 +113,7 @@ class PreliminaryEnhancementNetwork(Module):
     def forward(self, lf, hf):
         lf = self.lfEnhancement(lf)
         hf = self.hfEnhancement(hf)
-        return lf + hf
+        return lf + hf, lf, hf
 
 class RefinementNetwork(Module):
     def __init__(self, numLayers):
@@ -142,12 +142,11 @@ class RefinementNetwork(Module):
 
         # Decoder — add skip connections from encoder
         for layer_n in range(self.numLayers):
-            skip = skips[self.numLayers - 1 - layer_n]
-            y = y + skip
-            if layer_n == self.numLayers - 1:
-                y = self.upscalingLayers[layer_n](y)
-            else:
-                y = self.upscalingLayers[layer_n](y)
+            if layer_n>0:
+                skip = skips[self.numLayers - 1 - layer_n]
+                y = y + skip
+            y = self.upscalingLayers[layer_n](y)
+            if layer_n != self.numLayers - 1:
                 y = applyMapBasedAttention(y, attentionMap)
 
         return torch.clamp(y, 0, 1)
@@ -160,10 +159,10 @@ class ImageEnhancementNetwork(Module):
         self.refinementNetwork = RefinementNetwork(refinementNetworkDepth)
 
     def forward(self, lf, hf):
-        preliminary_image = self.preliminaryNetwork(lf, hf)
+        preliminary_image, lf_out, hf_out = self.preliminaryNetwork(lf, hf)
         combined = torch.cat([preliminary_image, lf[:, :3], hf[:, :3]], dim=1)
         enhanced_image = self.refinementNetwork(combined)
-        return enhanced_image
+        return enhanced_image, lf_out, hf_out
 
 
 if __name__ == "__main__":

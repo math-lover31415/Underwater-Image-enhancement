@@ -26,6 +26,8 @@ class UnderwaterTrainer:
         self.savePoint = modelSavePoint
         self.loss = CompositeLoss(model).to(DEVICE)
         self.scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, min_lr=1e-6)
+        if self.device==torch.device('cuda'):
+            self.scaler = torch.amp.GradScaler('cuda')
 
         self.best_val_loss = float('inf')
 
@@ -51,14 +53,23 @@ class UnderwaterTrainer:
             # Clear the gradients from previous batch
             self.optimizer.zero_grad()
             
-            # Forward Pass
-            loss = self.loss(lf, hf, gt_lf, gt_hf)
-            
-            # Backpropagate
-            loss.backward()
-            
-            # Update the weights
-            self.optimizer.step()
+            if self.device!=torch.device('cuda'):
+                # Forward Pass
+                loss = self.loss(lf, hf, gt_lf, gt_hf)
+                
+                # Backpropagate
+                loss.backward()
+                
+                # Update the weights
+                self.optimizer.step()
+            else:
+                # Forward Pass
+                with torch.amp.autocast('cuda', dtype=torch.float16):
+                    loss = self.loss(lf, hf, gt_lf, gt_hf)  # 2. Forward pass
+                
+                self.scaler.scale(loss).backward()  # 3. Backward pass
+                self.scaler.step(self.optimizer)    # 4. Update weights
+                self.scaler.update()                # 5. Update scaler
             
             # Accumulate loss for monitoring
             running_loss += loss.item()

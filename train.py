@@ -2,8 +2,8 @@ import os
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.utils.data import DataLoader
-
+from torch.utils.data import DataLoader, random_split
+from seed import set_seed
 from utilities import enhanceDCP
 from loss import CompositeLoss
 from model import ImageEnhancementNetwork
@@ -132,18 +132,20 @@ def train_model(model, trainingParameters, savePoint, emulatedFunction=None, lim
     optimizer = optim.Adam(model.parameters(), lr=trainingParameters.LEARNING_RATE)
 
     # Initialize Datasets (Assuming input/GT folder structure) 
-    train_dataset = ImageDataset(input_dir=os.path.join(TRAIN_DATA_PATH, "input"), 
+    full_dataset = ImageDataset(input_dir=os.path.join(TRAIN_DATA_PATH, "input"), 
                                 gt_dir=os.path.join(TRAIN_DATA_PATH, "GT"), 
                                 no_gt_dir=os.path.join(TRAIN_DATA_PATH, "nogt"), 
                                 emulatedFunction=emulatedFunction,
                                 limitImages=limitImages)
+    val_size = int(0.1 * len(full_dataset))
+    train_size = len(full_dataset) - val_size
+    train_dataset, val_dataset = random_split(
+        full_dataset, [train_size, val_size],
+        generator=torch.Generator().manual_seed(42)
+    )
+
     train_loader = DataLoader(train_dataset, batch_size=trainingParameters.BATCH_SIZE, shuffle=True)
     
-    val_dataset = ImageDataset(input_dir=os.path.join(VAL_DATA_PATH, "input"), 
-                                gt_dir=os.path.join(VAL_DATA_PATH, "GT"),
-                                no_gt_dir=os.path.join(TRAIN_DATA_PATH, "nogt"),
-                                emulatedFunction=emulatedFunction,
-                                limitImages=limitImages)
     val_loader = DataLoader(val_dataset, batch_size=trainingParameters.BATCH_SIZE, shuffle=False)
 
     trainer = UnderwaterTrainer(model, train_loader, val_loader, optimizer, 
@@ -153,6 +155,7 @@ def train_model(model, trainingParameters, savePoint, emulatedFunction=None, lim
 
 
 if __name__ == '__main__':
+    set_seed(42)
     model = ImageEnhancementNetwork()
     model.to(DEVICE)
 

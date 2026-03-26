@@ -10,7 +10,7 @@ class Evaluator:
         self.model = model
         self.device = device
         self.metrics = { #Add other metrics here
-            "UIQM": UIQM.uiqm,
+            "UIQM": lambda x, y: UIQM.uiqm(x).item(),
             "SSIM": lambda x,y: ssim(x, y, data_range=1.0, size_average=True).item(),
             "PSNR": lambda x,y: psnr(x, y, data_range=1.0).item()
         }

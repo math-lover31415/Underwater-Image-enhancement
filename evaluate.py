@@ -16,6 +16,6 @@ if __name__=='__main__':
     model.to(DEVICE)
     model.eval()
 
-    eval = Evaluator(test_dataset, model, DEVICE)
+    eval = Evaluator(test_dataset, model, DEVICE, displayProgress=True)
 
     print(eval.evaluate())

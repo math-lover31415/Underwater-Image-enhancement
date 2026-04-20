@@ -33,7 +33,6 @@ def splitImage(img, cutoff_ratio=0.2):
         Low[:, :, ch]  = idct2(Low_T)
     return High, Low
 
-
 if __name__ == "__main__":
     input_dir = "data/DCT/Inputs"
     hf_dir = "data/DCT/HF"

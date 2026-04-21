@@ -22,7 +22,7 @@ def backgroundLight(x, dark_channel):
     n_top = max(1, int(H * W * DCP_TRANSMISSION_PERCENTILE))
     dc_flat = dark_channel.view(B, -1)
     _, top_idx = dc_flat.topk(n_top, dim=1)
-    img_flat = x.view(B, C, -1)
+    img_flat = x.reshape(B, C, -1)
     idx_expanded = top_idx.unsqueeze(1).expand(B, C, n_top)
     top_pixels = img_flat.gather(dim=2, index=idx_expanded)
     A = top_pixels.max(dim=2).values.view(B, C, 1, 1)

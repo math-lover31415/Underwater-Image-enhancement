@@ -1,10 +1,11 @@
 import os
 import cv2
 import torch
+import random
 import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
+import torchvision.transforms.functional as TF
 from dct import splitImage 
 from constants import DCT_CUTOFF_RATIO
 from constants.TrainingParameters import *

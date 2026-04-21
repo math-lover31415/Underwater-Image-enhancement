@@ -1,10 +1,9 @@
 import torch
 
-from torch.nn import Module, ModuleList, LeakyReLU, Sigmoid, BatchNorm2d, PixelShuffle
-from torch.nn import Conv2d
+import torch.nn as nn
+import torch.nn.functional as F
 
-from constants import PRELIMINARY_NETWORK_DEPTH, REFINEMENT_NETWORK_DEPTH
-from utilities import reverseTransmissionMap, applyMapBasedAttention
+from utilities import DCPTransmission
 
 IN_CHANNEL_NUM = 9
 OUT_CHANNEL_NUM = 3
@@ -127,4 +126,4 @@ if __name__ == "__main__":
     hf = torch.randn(1, 9, 256, 256)
     model = ImageEnhancementNetwork()
     y = model(lf, hf)
-    print(y.shape)
+    print(*(x.shape for x in y), sep="\n")
